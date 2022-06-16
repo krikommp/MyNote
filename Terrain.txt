@@ -151,7 +151,31 @@ Terrain_Set_Custom_PropMaterialTemplate(...)
 		}
 	}
 
-2. 创建 SplatAlpha Texture
+2. 创建及删除 SplatAlpha Texture
+LayerIndexTexture 和 LayerWeightTexture 的创建与销毁和 alphaTextures 保持一致
+
+创建
+1. 当 Terrain 被创建出来时
+TerrainDataScriptingInterface::Create(...)
+	-> TerrainData->AwakeFromLoad(kInstantiateOrCreateFromCodeAwakeFromLoad)
+		{
+			// 分别进行地形每个模块的 AwakeFromLoad
+			m_SplatDatabase.AwakeFromLoad(awakeMode);	// alpha map 初始化的地方
+			-> SplatDatabase::AwakeFromLoad(...) 
+			-> SplatDatabase::CheckConsistency
+			{
+				1. 根据 actual 分辨率重新计算 alpha map 的分辨率。
+				由于希望 LayerIndexTexture 和 LayerWeightTexture 与 alpha map 保持一致
+				因此这里也需要根据计算出来的分辨率修改这两张贴图
+				2. 分配贴图空间
+				当移除了一些Splat texture，需要确保 alpha map 也被销毁
+				当用户进行 undo 操作，也需要重新分配 alpha map 空间
+				SplatDatabase::ResizeAlphaTextureArray()
+
+			}
+			
+		}
+
 // 当创建一层 TerrainLayer 时会调用该方法
 // TerrainDataScriptingInterface.cpp	---	Line 344
 TerrainDataScriptingInterface::SetTerrainLayersRegisterUndo(...)
@@ -161,6 +185,13 @@ TerrainDataScriptingInterface::SetTerrainLayersRegisterUndo(...)
 		// 判断条件是：将当前层数与 SplatStaticVars::kSplatsPerControl(4) 进行计算，每多4层就会需要多一张 AlphaMap
 		// 会保证 m_AlphaTextures 与实际需要的 AlphaMap 数量一致，不足的将进行创建，多余的会被删除
 		-> SplatDatabase::ResizeAlphaTextureArray(...)
+
+
+// 删除
+1. 记录
+	可能有关的函数
+	ResizeAlphaTextureArray()
+
 
 
 3. 绘制地形贴图
@@ -211,7 +242,27 @@ TerrainDataScriptingInterface::SetTerrainLayersRegisterUndo(...)
 				// ...
 				// 遍历所有的 alphamaps 并进行修改
 				for (int i = 0; i < t.terrain.terrainData.alphamapTextureCount; i++) {
-					
+					// 省略部分... 考虑只有一层 Alphamap 时
+					RenderTexture.active = tempTarget;	// 需要将渲染结果记录在这张临时rt上面
+					// 调用 立即渲染 指令
+					{
+						// 省略部分... 只展示参数传递
+						
+						// 这是这一块上利用这个通道绘制出的强度信息
+						// 这是与上一次绘制进行计算之后的结果
+						// 在shader中就是依据这个texture来获取这个通道的强度信息
+						copyTerrainLayerMaterial.SetTexture("_MainTex", destinationRenderTexture);
+
+						// 这是上一次画刷绘制的结果
+						copyTerrainLayerMaterial.SetTexture("_OldAlphaMapTexture", sourceRenderTexture);
+
+						// 地形的 alphamap, 记录所有通道的权重信息
+						// 在之后地形渲染中会读取这个 map 上的信息来对地形贴图进行blend操作
+						copyTerrainLayerMaterial.SetTexture("_OriginalTargetAplhaMap", targetAlphamapTexture);
+
+						// G
+						copyTerrainLayerMaterial.SetTexture(
+					}
 				}
 			});
 		}
@@ -258,3 +309,19 @@ CullScriptable()
 			}
 		
 	}
+
+
+设计：
+	说明：需要添加额外两张贴图
+	1. LayerIndexTexture
+	2. LayerWeightTexture
+	方法：
+		从 Alphamap texture 中获取每个通道(Layer)的权重信息(逐像素获取)，然后对比在这个像素下的权重
+		依据权重信息分别记录为 maxChannelWeight, secondChannelWeight, thirdChannelWeight
+		同时也可以得到这些权重信息对象 Layer 索引，分别为
+		maxChannelIndex, secondChannelIndex, thirdChannelIndex
+
+		然后在 terrain shader 中可以得到这两张贴图，LayerIndexTexture, LayerWeightTexture, 即不需要提供 Alphamap texture 以及 AddPass
+		根据 LayerIndexTexture 还原地形贴图索引，通过这个索引信息获取地形贴图的颜色值
+		根据 LayerWeightTexture 对每个地形贴图进行混合
+		光照模型计算
