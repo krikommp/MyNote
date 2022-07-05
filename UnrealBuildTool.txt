@@ -1,0 +1,61 @@
+1. 找到导出 C++ 文件 头文件，宏等配置信息的方法
+2. 找到如何添加工程到 sln 中，让 C# 可以显示出来
+
+
+UBt 程序入口
+	-> private static int Main(string[] ArgumentsArray) 
+		// UnrealBuildTool.cs --- line 444
+
+根据 Mode 的类型执行不同的构建逻辑
+
+// Build
+-Target=ProjectVEditor Win64 Development -Project="D:\SandBox\projectv-ue\ProjectV.uproject"
+-Target=ShaderCompileWorker Win64 Development -Quiet
+-WaitMutex
+-FromMsBuild
+
+// generater project files
+-projectfiles -project=D:/SandBox/projectv-ue/ProjectV.uproject -game -engine -progress
+
+关于 UAT 的编译
+执行 BuildUAT.bat 会执行 UAT 的编译
+
+关于UBT的编译
+运行 GenerateProjectFiles.bat 会进行 UBT 的编译
+
+关于 UHT 编译
+1. 每次编译项目前都会对 UnrealBuildTool 这个项目进行编译
+	注意：只有当项目需要进行 UnrealBuildTool
+分析时才会进行编译，否则将会单纯编译项目
+2. 等待 UnrealBuildTool 项目编译完成后会调用 
+	
+
+UnrealHeaderTool
+1. 通过进程调用 UHT
+步骤：
+	1. BuildMode::CreateMakefile() -- Line 782
+	2. ExternalExecute::HeaderToolIfNecessary()	---	Line 1250
+	3. ExternalExecute::RunExternalNativeExecutable()	---	Line 1055
+	
+F:\UnrealEngine\Engine\Binaries\Win64\UnrealHeaderTool.exe "D:\SandBox\projectv-ue\ProjectV.uproject" "D:\SandBox\projectv-ue\Intermediate\Build\Win64\ProjectVEditor\Development\ProjectVEditor.uhtmanifest" -LogCmds="loginit warning, logexit warning, logdatabase error" -Unattended -WarningsAsErrors -abslog="F:\UnrealEngine\Engine\Programs\UnrealBuildTool\Log_UHT.txt"
+
+2. 编译文件
+步骤：
+	CreateMakefile
+	1. 会尝试从本地加载 Makefile.bin 文件，如果不存在则会开始生成
+	路径：MyProject/Intermediate/Build/Win64/MyProject/Development/Makefile.bin
+	2. 生成
+		UEBuildTarget::Create		// Create Target
+		首先会生成 RulesAssembly	---	Line 705
+		步骤：
+		1. 获取引擎目录下所有的 Plugins 目录
+		2. 会将 Engine 目录下的 Runtime, Developer, Editor,
+ThirdParty, 以及所有 Plugins 中的 xxx.build.cs 文件收集到列表中
+		3. 然后拼接出 dll 名字： F:\UnrealEngine\Engine\Intermediate\Build\BuildRules\UE5Rules.dll
+		4. 这个名字会作为下面编译/查找 dll 的路径
+		5. 是否需要重新编译，如果不需要直接取出 dll，如果需要那么执行
+cs 编译器进行编译
+		6. 编译出的就是 RulesAssembly
+RulesCompiler::CreateEngineRulesAssemblyInternal()
+
+

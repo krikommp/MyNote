@@ -1,0 +1,28 @@
+CardPrepareAttackState() :
+	when card.play()
+	Change State to CardPlayState()
+
+CardPlayState():
+Enter():
+	PlayerUnit->ActivateCardSkillInHand(Card);
+	auto CardLogic = Card->GetCardLogic();
+	CardLogic->BindLogicEnd(this, [](){
+		Change State to CardDiscardState();
+	});
+	
+Update():
+	CardLogic->Tick();
+
+Exit():
+
+In GA:
+	PlayeCardLogicTask();
+
+
+CardLogic:
+	Active(Card, PlayerUnit):
+	
+
+	Tick():
+	
+		
