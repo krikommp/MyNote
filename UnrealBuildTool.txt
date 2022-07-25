@@ -92,3 +92,42 @@ cs 编译器进行编译
 RulesCompiler::CreateEngineRulesAssemblyInternal()
 
 
+Running F:/UnrealEngine/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.exe  -projectfiles -project="D:/SandBox/projectv-ue/ProjectV.uproject" -game -engine -progress -log="D:\SandBox\projectv-ue/Saved/Logs/UnrealVersionSelector-2022.07.14-10.15.19.log"
+Arg = -projectfiles
+Arg = -project=D:/SandBox/projectv-ue/ProjectV.uproject
+Arg = -game
+Arg = -engine
+Arg = -progress
+Arg = -log=D:\SandBox\projectv-ue/Saved/Logs/UnrealVersionSelector-2022.07.14-10.15.19.log
+Get Mode Name = GenerateProjectFilesMode
+Log file: D:\SandBox\projectv-ue\Saved\Logs\UnrealVersionSelector-2022.07.14-10.15.19.log
+Log file: F:\UnrealEngine\Engine\Programs\UnrealBuildTool\Log_GPF.txt
+
+Some Platforms were skipped due to invalid SDK setup: Mac, IOS, Android, Linux, LinuxArm64, TVOS.
+See the log file for detailed information
+
+Discovering modules, targets and source code for project...
+Binding IntelliSense data...
+Binding IntelliSense data... 100%
+Writing project files...
+
+
+0>Arg = -Target=ProjectVEditor Win64 Development -Project="D:\SandBox\projectv-ue\ProjectV.uproject"
+0>Arg = -Target=ShaderCompileWorker Win64 Development -Quiet
+0>Arg = -WaitMutex
+0>Arg = -FromMsBuild
+
+-projectfiles -project=D:/SandBox/projectv-ue/ProjectV.uproject -game -engine -progress -log=D:\SandBox\projectv-ue/Saved/Logs/UnrealVersionSelector-2022.07.14-10.15.19.log
+
+-Target=ProjectVEditor Win64 Development -Project="D:\SandBox\projectv-ue\ProjectV.uproject" -Target=ShaderCompileWorker Win64 Development -Quiet -WaitMutex -FromMsBuild
+
+
+
+//////////////////////////
+OnBlackjackSharpRuleCreate 入口
+
+GetScriptPlugins
+
+-Target=UnrealEditor Win64 Development -Target=ShaderCompileWorker Win64 Development -Quiet -WaitMutex -FromMsBuild
+
+-Target="UnrealEditor Win64 Debug" -Target="ShaderCompileWorker Win64 Development -Quiet" -WaitMutex -FromMsBuild
