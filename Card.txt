@@ -1,28 +1,33 @@
-CardPrepareAttackState() :
-	when card.play()
-	Change State to CardPlayState()
+PlayPaperFilpBookAndWaitEvent:
 
-CardPlayState():
-Enter():
-	PlayerUnit->ActivateCardSkillInHand(Card);
-	auto CardLogic = Card->GetCardLogic();
-	CardLogic->BindLogicEnd(this, [](){
-		Change State to CardDiscardState();
-	});
-	
-Update():
-	CardLogic->Tick();
-
-Exit():
-
-In GA:
-	PlayeCardLogicTask();
+TickTask
 
 
-CardLogic:
-	Active(Card, PlayerUnit):
-	
 
-	Tick():
-	
+
+
+
+Enemy:
+	1. Melee Enemy
+	AI:
+		hp is low
+		if some player near by
+		try find save space
+		if no space 
+		use iatrotechnics to recove self hp
+		if has some space to move
+		move
+		end turn
+
+		hp is low
+		if no player near by
+		use iatrotechnics to recove self hp
+		end turn
 		
+		hp not low
+		select a near-by player 
+		move to player
+		if player in the range of enemy attack => hit	
+	
+// Attribute Base 计算公式
+Cofficient * (PreMultiplyAdditiveValue + Attribute) + PostMultiplyAdditiveValue

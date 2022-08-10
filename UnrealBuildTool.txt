@@ -36,6 +36,52 @@ UBt 程序入口
 	注意：只有当项目需要进行 UnrealBuildTool
 分析时才会进行编译，否则将会单纯编译项目
 2. 等待 UnrealBuildTool 项目编译完成后会调用 
+
+UnrealBuildTool
+1. 编译过程
+	1. 编译 Build.cs
+	BuildMode::Execute
+	BuildMode::Build
+	BuildMode::CreateMakefile
+	if Mainfile != null then
+	var Target = UEBuildTarget::Create
+	[
+		RulesAssembly::CreateProjectRulesAssembly	// 编译项目 RuleAssembly
+		UEBuildTarget::ValidateSharedEnvironment	// 
+		UEBuildTarget::PreBuildSetup			// 执行 build.cs
+		[
+			// ...
+			RulesAssembly::CreateModuleRules	// 执行 Construct
+			// ...
+		]	
+	]
+	Target.Build()
+	[
+		// 设置编译环境变量
+		// 收集编译文件
+		if (Makefile.UObjectModule.Count > 0)
+		{
+			// 确认是否需要执行 UHT
+			// 如果需要那么开启进程执行，并等待进程结束
+			ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, ProjectFile, Makefile, TargetName, WorkingSet);
+		}
+		// 省略部分
+		TargetReceipt Receipt = PrepareReceipt(TargetToolChain, BuildProducts, RuntimeDependencies);
+		// 序列化 Receipt ， 将会在 UAT 中获取这个类型，并将列如 RuntimeDependencies 复制到打包的项目目录
+		// ....
+		return Makefile
+	]
+	// 对 Makefile 进行一系列设置
+	Makefile.Save(...)
+	else 
+	if (Makefile.UObjectModules.Count > 0) {
+		ExternalExecution.ExecuteHeaderToolIfNecessary(BuildConfiguration, TargetDescriptor.ProjectFile, Makefile, TargetDescriptor.Name, WorkingSet);
+	}
+	end
+	return Makefile
+	
+	
+
 		
 
 UnrealHeaderTool
@@ -131,3 +177,90 @@ GetScriptPlugins
 -Target=UnrealEditor Win64 Development -Target=ShaderCompileWorker Win64 Development -Quiet -WaitMutex -FromMsBuild
 
 -Target="UnrealEditor Win64 Debug" -Target="ShaderCompileWorker Win64 Development -Quiet" -WaitMutex -FromMsBuild
+
+
+
+//////////////////////////
+打包
+
+写入：F:\UEProjects\BjFpsDemo\Intermediate\Build\Win64\BjFpsDemo\Development\TargetMetadata.dat
+
+读取：CopyBuildToStagingDirectory.Automation.cs
+BuildCookRun.Automation::DoBuildCookRun()
+{
+	// ...
+	ProjectBuildToStagingDirectory(...)
+	// ...
+}
+
+CopyBuildToStagingDirectory::CopyBuildToStagingDirectory()
+{
+	CreateStagingManifest(...)
+}
+CopyBuildToStagingDirectory::CreateStagingManifest() {
+	// Read the receipt for this target
+	TargetReceipt Receipt;
+	if (!TargetReceipt.TryRead(ReceiptFileName, out Receipt))
+	{
+		throw new AutomationException("Missing or invalid target receipt ({0})", ReceiptFileName);
+	}
+}
+
+//////////////////////////////////////////////
+C++ 编译
+编译参数：
+-Target=BjRPGGameEditor Win64 Development -Project="D:\SandBox\BjRPGGame\BjRPGGame.uproject" -Target=ShaderCompileWorker Win64 Development -Quiet -WaitMutex -FromMsBuild
+
+UEBuildTarget::Build() 
+
+// 遍历所有dll，执行编译
+using (GlobalTracer.Instance.BuildSpan("UEBuildBinary.Build()").StartActive())
+			{
+				foreach (UEBuildBinary Binary in BuildBinaries)
+				{
+					List<FileItem> BinaryOutputItems = Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, TargetDescriptor.SpecificFilesToCompile, WorkingSet, ExeDir, Makefile);
+					Makefile.OutputItems.AddRange(BinaryOutputItems);
+				}
+			}
+
+// 获取 dll 中的 Module，执行 Module 编译
+		foreach (UEBuildModule Module in Modules)
+			{
+				List<FileItem> LinkInputFiles;
+				if (Module.Binary == null || Module.Binary == this)
+				{
+					// Compile each module.
+					Log.TraceVerbose("Compile module: " + Module.Name);
+					LinkInputFiles = Module.Compile(Target, ToolChain, BinaryCompileEnvironment, SpecificFilesToCompile, WorkingSet, Graph);
+
+					// Save the module outputs. In monolithic builds, this is just the object files.
+					if (Target.LinkType == TargetLinkType.Monolithic)
+					{
+						Graph.SetOutputItemsForModule(Module.Name, LinkInputFiles.ToArray());
+					}
+
+		//.....................
+		}
+
+
+
+// 设置编译参数
+UEBuildModuleCPP::Compile
+CppCompileEnvironment ModuleCompileEnvironment = CreateModuleCompileEnvironment(Target, BinaryCompileEnvironment);
+[[O
+
+
+
+// 使用ClangDatabase
+-mode=GenerateClangDatabase -project="D:\SandBox\BjRPGGame\BjRPGGame.uproject" Development Win64 -Target=BjRPGGameEditor
+-projectfiles 
+
+
+Running F:\UnrealEngine\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.exe -Target="BjRPGGameEditor Win64 Development -Project=""D:/SandBox/BjRPGGame/BjRPGGame.uproject""" -LiveCoding -LiveCodingModules="F:/UnrealEngine/Engine/Intermediate/LiveCodingModules.txt" -LiveCodingManifest="F:/UnrealEngine/Engine/Intermediate/LiveCoding.json" -WaitMutex -LiveCodingLimit=100
+  Log file: F:\UnrealEngine\Engine\Programs\UnrealBuildTool\Log.txt
+  Using 'git status' to determine working set for adaptive non-unity build (F:\UnrealEngine).
+  Target is up to date
+  Total execution time: 3.63 seconds
+
+
+
