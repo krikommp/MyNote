@@ -31,3 +31,47 @@ Enemy:
 	
 // Attribute Base 计算公式
 Cofficient * (PreMultiplyAdditiveValue + Attribute) + PostMultiplyAdditiveValue
+
+AttackRange:
+In Eveny Character, we add "InsightIntensity", default value = 1.0f
+when in card attack range find function, we use card attack range multiply by this intensity value to get final attack range
+
+PlayerControllerState:
+...
+PlayerPrepareAttackState:
+only use PreviewCardSkill -> {
+1. play character preview anim
+2. find attack path
+}
+
+PlayerAttackState:
+only use CardSkill
+
+fix:
+1. remove card logic and card logic ability task, and use playpapermontage and gameplay ability instead.(1)
+2. consider to add character insight intensity attribute, when calc character's find path range or card attack range, we use this attribut mutlity by range.(3)
+3. learn unreal ai system, try move enemy behaviour to behaviour tree .(2)
+
+
+about AI:
+1. add GridAITurnActionManager class
+	1. ActiveAITurnAction
+	2. StartCurrentAIUnitTurn
+	3. EndCurrentAIUnitTurn
+
+2. for every enemy unit, add AIController
+	1. when GridAITurnActionManager::StartCurrentAIUnitTurn call, Set Blackbroad value "bInAIControlProgress" to ture
+	2. run behavior tree logic
+	3. when end action call, set "bInAIControlProgress" to false
+
+Card Skill Design:
+1. Portal
+	1. select a unit to activate ability
+	2. if this target unit hasn't gameplay tag: ability.forbid.portal
+	3. show portal range whitout any unit in
+	4. wait for player click a place
+	5. when click
+	6. translate selected unit to this place
+	7. finish 
+
+

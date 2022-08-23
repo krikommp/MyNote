@@ -119,6 +119,13 @@ $(LocalDebuggerCommandArguments)
 
 2. 编译文件
 
+Target -> BuildBinaries[...]
+BuildBinary -> BuildModules[...]
+BuildModule -> CppFiles[...]
+
+// 获取module编译目录
+ModuleRule::GetAllModuleDirectories()
+
 步骤：
 	CreateMakefile
 	1. 会尝试从本地加载 Makefile.bin 文件，如果不存在则会开始生成
@@ -263,4 +270,20 @@ Running F:\UnrealEngine\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.e
   Total execution time: 3.63 seconds
 
 
+// 确认需要生成 Makefile, 主要是判断项目目录是否发生变化，文件是否发生新增或删除
+TargetMakefile.IsValidForSourceFiles(Makefile, TargetDescriptor.ProjectFile, TargetDescriptor.Platform, WorkingSet, out Reason)
+
+
+
+// 生成 Makefile 内容
+UEBuild UEBuildModuleCPP::Compile 
+
+// 生成项目
+
+VCProject::WriteProjectFile // 为每个项目生成 csproj
+
+VCProjectFileGenerator::WritePrimaryProjectFile // 写入 sln
+
+
+BjRPGGame Win64 Development -Project=D:\SandBox\BjRPGGame\BjRPGGame.uproject  D:\SandBox\BjRPGGame\BjRPGGame.uproject -NoUBTMakefiles  -remoteini="D:\SandBox\BjRPGGame" -skipdeploy -Manifest=F:\UnrealEngine\Engine\Intermediate\Build\Manifest.xml -NoHotReload -log="F:\UnrealEngine\Engine\Programs\AutomationTool\Saved\Logs\UBT-BjRPGGame-Win64-Development.txt"
 
