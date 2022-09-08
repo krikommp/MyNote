@@ -83,6 +83,7 @@ FArchive = FLinkerLoad
 
 FAsyncPackage::LoadImports_Event()
 
+
 解析表达式：
 ... -> UFunction::Serialize -> UStruct::Serialize -> 
 if is loading -> ScriptLoadHelper.LoadStructWithScript ->
@@ -96,3 +97,25 @@ FLinkerLoad::operator<<(UObject*&)
 
 BlackboardData'/Game/AI/BB_LearnTree.BB_LearnTree'
 Class'/Script/CodeGenerator.CodePawn'
+
+
+fix:
+
+1. editor 模式下查找 package name 找不到
+GetPackageLinker -> FPackageName::DoesPackageExist ----> false
+
+2. runtime 模式下 import map 中的 XObject 没有加载成功
+	ResetBlackjackSharp 	// 注册package和对应类型
+	FAsyncPackage::Event_StartImportPackages	// 加载 import
+packages
+	[
+		FObjectImport* Import = FindExistingImport(LocalImportIndex);
+		//
+如果FindExistingImport失败，会将package插入到AsyncLoadingThread中
+	]
+	
+
+
+首先执行 CreatePackage
+之后才会执行 FSharpGeneratedClassBuilder
+

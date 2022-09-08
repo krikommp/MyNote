@@ -74,4 +74,9 @@ Card Skill Design:
 	6. translate selected unit to this place
 	7. finish 
 
+2. 
+
+
+
+
 
