@@ -1,3 +1,27 @@
+1. 虚拟机的字节码为 EExprToken 枚举
+	位于 Script.h 文件中
+
+2. 字节码中每个指令都由对应的 C++ 函数实现
+	所以想要加入新的字节码指令，就需要提供对应的函数实现
+
+3. FFrame类就是蓝图虚拟机，可以将他理解为一个栈帧，每一次对UFunction的调用都会创建一个栈帧
+
+4. FFrame类
+	UObject* Object		函数执行对象
+	unit8* Code 		函数编译后的字节码数组
+
+	主要方法：
+	Step():	从字节码 Code 中取出一个字节码并执行相应的函数
+	以及一些从 Code 中读取数据的辅助方法
+	
+	void FFrame::Step(UObject* Context, RESULT_DECL)
+	{
+		int32 B = *Code++;
+		(GNatives[B])(Context,*this,RESULT_PARAM);
+	}
+	
+	ProcessEvent 函数，创建一个 FFrame 作为调用栈
+
 UPackage::Save 
 UPackage::Save2
 
@@ -15,6 +39,10 @@ UFunction::Serialize -> UStruct::Serialize
 FPackageHarvester::Serialize
 -> 递归直到所有类型信息收集完毕
 
+class Test{
+int a;
+uobject* b; (-1)
+}
 // 
 
 
