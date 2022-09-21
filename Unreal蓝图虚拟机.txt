@@ -147,3 +147,35 @@ packages
 首先执行 CreatePackage
 之后才会执行 FSharpGeneratedClassBuilder
 
+
+///////////////////// Variables
+
+TArray<struct FBPVariableDescription> NewVariables：这个蓝图自己创建的变量，不包含从父类继承的，在编译时会添加到BlueprintGeneratedClass中。
+# 调用过程
+umg 被触发 -> 
+FBlueprintEditor::OnAddNewVariable() -> 
+FBlueprintEditorUtiles::AddMemberVariable(UBlueprint* Blueprint, const FName& NewVarName, const FEdGraphPinType& NewVarType, const FString& DefaultValue/* = FString()*/) ->
+[
+1. 创建一个 FBPVariableDescription NewVar;
+2. 赋值，设置flag，guid等
+3. 添加进 NewVariables 数组中
+4. 子类验证
+5. 重编译 skeleton class, 通知其他观察者，dirty
+	[
+		FastGenerateSkeletonClass()->
+		CreateClassVariablesFromBlueprint()->
+		[
+			遍历 Blueprint->NewVariables
+			创建 FProperty, 会将创建的 FProperty LinkAdd 到 NewClass 中
+			UStruct 中有 ChilProperties 链表，NewProperty 会加入自身到链表中
+		]
+	]
+]
+
+
+# 析构
+UStruct::~UStruct()
+{
+	// 将链接的 FProperty 析构
+	DestroyPropertyLinkedList(childProperties);
+}
