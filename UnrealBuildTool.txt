@@ -10,7 +10,7 @@ UBt 程序入口
 
 // Build
 // Build Project
--Target=ProjectVEditor Win64 Development -Project="D:\SandBox\projectv-ue\ProjectV.uproject"
+-Target=MyProjectEditor Win64 Development -Project="D:\SandBox\MyProject\MyProject.uproject"
 -Target=ShaderCompileWorker Win64 Development -Quiet
 -WaitMutex
 -FromMsBuild
@@ -286,4 +286,8 @@ VCProjectFileGenerator::WritePrimaryProjectFile // 写入 sln
 
 
 BjRPGGame Win64 Development -Project=D:\SandBox\BjRPGGame\BjRPGGame.uproject  D:\SandBox\BjRPGGame\BjRPGGame.uproject -NoUBTMakefiles  -remoteini="D:\SandBox\BjRPGGame" -skipdeploy -Manifest=F:\UnrealEngine\Engine\Intermediate\Build\Manifest.xml -NoHotReload -log="F:\UnrealEngine\Engine\Programs\AutomationTool\Saved\Logs\UBT-BjRPGGame-Win64-Development.txt"
+
+
+
+public ModuleRules CreateModuleRules(string ModuleName, ReadOnlyTargetRules Target, string ReferenceChain)
 
