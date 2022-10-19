@@ -1,0 +1,21 @@
+PlayerManangerComponent 
+-> GridPlayerInfo
+    -> UserID : FString
+    -> LockedHeroes : TArray<int32>
+
+-> HeroesManagerComponent
+    -> GridHeroInfo
+        -> HeroID : int32
+        -> HeroLevel : int32
+        -> UsingCardPackageID : int32
+        -> HoldingCardPackageIDs : TArray<int32>
+
+-> CardsManagerComponent
+    -> GridCardPackageInfo
+        -> Name : FString
+        -> ID : int32
+        -> InPackageCards : TArray<FString>
+
+    -> GridCardInfo
+        -> CardID : FString
+        -> CardLevel : FString

@@ -64,19 +64,40 @@ about AI:
 	2. run behavior tree logic
 	3. when end action call, set "bInAIControlProgress" to false
 
-Card Skill Design:
-1. Portal
-	1. select a unit to activate ability
-	2. if this target unit hasn't gameplay tag: ability.forbid.portal
-	3. show portal range whitout any unit in
-	4. wait for player click a place
-	5. when click
-	6. translate selected unit to this place
-	7. finish 
-
-2. 
 
 
+refacing data asset design:
+
+[Non-mutable data asset]
+carddata
+{
+	name
+	frame
+	icon
+	ability
+	anim
+}
+
+TSoftObjectPath<carddata>
+
+[Non-mutable data asset]
+herodata
+
+[Non-mutable data asset]
+enemydata
+
+[Non-mutable data asset]
+bossdata 
+
+
+
+Effects:
+
+// 移除
+UAbilitySystemComponent::OnAnyGameplayEffectRemovedDelegate
+
+// 添加，只针对有延时的 GameplayEffect
+OnActiveGameplayEffectAddedDelegateToSelf
 
 
 

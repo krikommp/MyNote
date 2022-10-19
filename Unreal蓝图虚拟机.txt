@@ -179,3 +179,14 @@ UStruct::~UStruct()
 	// 将链接的 FProperty 析构
 	DestroyPropertyLinkedList(childProperties);
 }
+
+/////////////////////// 构建问题
+测试命令行参数：
+D:\SandBox\MyProject\MyProject.uproject -run=Cook  -TargetPlatform=Windows -fileopenlog -ddc=DerivedDataBackendGraph -unversioned -abslog=E:\UnrealEngine\Engine\Programs\AutomationTool\Saved\Cook-2022.09.26-14.12.48.txt -stdout -CrashForUAT -unattended -NoLogTimes  -UTF8Output
+
+
+
+
+////////////////////// Link
+https://zhuanlan.zhihu.com/p/69067129
+https://blog.csdn.net/mohuak/article/details/83027211
