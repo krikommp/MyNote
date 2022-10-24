@@ -7,15 +7,34 @@ PlayerManangerComponent
     -> GridHeroInfo
         -> HeroID : int32
         -> HeroLevel : int32
-        -> UsingCardPackageID : int32
-        -> HoldingCardPackageIDs : TArray<int32>
+        -> UsingCardPackageID : FString
+        -> HoldingCardPackageIDs : TArray<FString>
 
 -> CardsManagerComponent
     -> GridCardPackageInfo
         -> Name : FString
-        -> ID : int32
+        -> ID : FString
         -> InPackageCards : TArray<FString>
 
     -> GridCardInfo
         -> CardID : FString
         -> CardLevel : FString
+
+Default Value
+1. Cards
+    1. Invoke CardsManagerComponent::CreateNewCard(const FGridCardData& CardData, int32 CardLevel);
+2. CardPackage
+    1. Invoke CardsManagerComponent::CreateNewCardPackage(const TArray<UGridCardInfo*>& Cards, const FString& PackageName = "Default");
+3. Hero
+    1. Invoke HeroesManagerComponent::CreateNewHeroes(const FString& HeroID, int32 HeroLevel, const UGridCardPackageInfo* CardPackage);
+
+for editor: (UI)
+we need
+{
+    FGridHeroData DefaultHeroData;
+    TArray<FGridCardData> DefaultCardDatas;
+    FString DefaultCardPackageName;
+}
+
+
+
