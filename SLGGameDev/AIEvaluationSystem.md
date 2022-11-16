@@ -46,7 +46,7 @@ class UGridGameplayAbility_Skill {
 class UGridAIEvaluationSystemComponent {
 	+ StartToCalcateAIEvaluation() : float
 	- GetAllUseSkillPossible() : List~List~UGridGameplayAbility~~
-	- CalcateMoveEvaluation(int32 TargetTileIndex) : float
+	- CalcateMoveEvaluation(int32 TargetTileIndex, int32& ActionPoint) : float
 	- TMap~int32, AISkillResult~ CachedAIResultList
 }
 
@@ -62,4 +62,20 @@ UGridUnitCharacter *-- UGridGameplayAbility_Skill
 UGridAIEvaluationSystemComponent *-- AIResult
 ```
 > Tips
-> 一点行动力 = 移动一格 = 造成 5 点伤害 = 1 点属性提升
+> CalcateMoveEvaluation：
+> 	(1.0 -normalize(MoveCost)) + CalcateDistanceBetweenTargets()
+> CalcateDistanceBetweenTargets:
+		if self.health > value then
+		flag = move to targets
+		else then
+		flag = away from targets
+		end if
+		distance weight coefficient = 0.0f;
+		foreach all targets in gridmap
+			distance = gridmap -> DistanceInTilesBetweenIndexes(targetIndex, target.tileIndex)
+			if flag is move to targets 
+				distance weight coefficient +=  1.0 - normalize(distance) * (target cause damage coefficient)
+			if flag us away from targets 
+				distance weight coefficient += normalize(distance)
+		return distance weight coefficient
+		
