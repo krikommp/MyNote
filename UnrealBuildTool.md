@@ -292,3 +292,11 @@ BjRPGGame Win64 Development -Project=D:\SandBox\BjRPGGame\BjRPGGame.uproject  D:
 public ModuleRules CreateModuleRules(string ModuleName, ReadOnlyTargetRules Target, string ReferenceChain)
 
 UE5.1
+UnrealBuildTool
+1. BuildMode
+	1. 编译项目
+		-Target="MyProject_UE5_1Editor Win64 Development -Project=\"D:\SandBox\MyProject_UE5_1\MyProject_UE5_1.uproject\"" -Target="ShaderCompileWorker Win64 Development -Quiet" -WaitMutex -FromMsBuild
+	2. 编译引擎
+		-Target="UnrealEditor Win64 Development" -Target="ShaderCompileWorker Win64 Development -Quiet" -WaitMutex -FromMsBuild
+		
+-Target="UnrealEditor Win64 Development" -Target="ShaderCompileWorker Win64 Development -Quiet" -WaitMutex -FromMsBuild -NoUBTMakefiles
