@@ -84,7 +84,7 @@ struct FAdjacency
       }  
    }  
 
-	// 
+	// 查找共享边
    template< typename FuncType >  
    void   ForAll( int32 EdgeIndex, FuncType&& Function ) const  
    {  
@@ -99,6 +99,29 @@ struct FAdjacency
          Function( EdgeIndex, Iter.Value() );  
       }  
    }  
+};
+
+// 不相交集合
+// 主要用于将两个相邻边的集合连接
+// 方便快速查找
+class FDisjointSet  
+{  
+public:  
+         FDisjointSet() {}  
+         FDisjointSet( const uint32 Size );  
+     
+   void   Init( uint32 Size );  
+   void   Reset();  
+   void   AddDefaulted( uint32 Num = 1 );  
+  
+   void   Union( uint32 x, uint32 y );  
+   void   UnionSequential( uint32 x, uint32 y );  
+   uint32 Find( uint32 i );  
+  
+   uint32 operator[]( uint32 i ) const   { return Parents[i]; }  
+  
+private:  
+   TArray< uint32 >   Parents;  
 };
 ```
 	接着构建边Hash和共享边
@@ -136,6 +159,9 @@ ParallelFor( TEXT("Nanite.ClusterTriangles.PF"), Indexes.Num(), 1024,
          AdjIndex = -2;  
   
       Adjacency.Direct[ EdgeIndex ] = AdjIndex;  
+   
    } );
+
+	
 ```
 	

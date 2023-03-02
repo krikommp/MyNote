@@ -1,0 +1,407 @@
+BuildNaniteData: 入口
+
+// 构建 Cluster
+TArray< FCluster > Clusters;
+{
+    uint32 BaseTriangle = 0;
+    for (uint32 NumTriangles : MeshTriangleCounts)
+    {
+        uint32 NumClustersBefore = Clusters.Num();
+        if (NumTriangles)
+        {
+            // 切分三角形，构建 Cluster 
+            ClusterTriangles(
+                InputMeshData.Vertices,
+                TArrayView< const uint32 >( &InputMeshData.TriangleIndices[BaseTriangle * 3], NumTriangles * 3 ),
+                TArrayView< const int32 >( &MaterialIndexes[BaseTriangle], NumTriangles ),
+                Clusters, VertexBounds, NumTexCoords, bHasVertexColor, Settings.bPreserveArea );
+        }
+        ClusterCountPerMesh.Add(Clusters.Num() - NumClustersBefore);
+        BaseTriangle += NumTriangles;
+    }
+}
+
+    static void ClusterTriangles(
+        const TArray< FStaticMeshBuildVertex >& Verts,
+        const TArrayView< const uint32 >& Indexes,
+        const TArrayView< const int32 >& MaterialIndexes,
+        TArray< FCluster >& Clusters,	// Append
+        const FBounds3f& MeshBounds,
+        uint32 NumTexCoords,
+        bool bHasColors,
+        bool bPreserveArea )
+    {
+        // ... 拆分三角形，构建邻边关系
+        FAdjacency Adjacency( Indexes.Num() );
+
+        // ... 三角形划分
+        FGraphPartitioner Partitioner( NumTriangles );
+
+        // 构建邻接关系
+        Partitioner.BuildLocalityLinks( DisjointSet, MeshBounds, MaterialIndexes, GetCenter );
+
+        //...
+        // 对 Cluster 进行细分，使用 metis 库，构建更加平均的划分结构
+        Partitioner.PartitionStrict( Graph, FCluster::ClusterSize - 4, FCluster::ClusterSize, !bSingleThreaded );
+
+        // 根据划分结果，构建 Cluster 结构
+        TRACE_CPUPROFILER_EVENT_SCOPE(Nanite::Build::BuildClusters);
+        ParallelFor( TEXT("Nanite.BuildClusters.PF"), Partitioner.Ranges.Num(), 1024,
+            [&]( int32 Index )
+            {
+                auto& Range = Partitioner.Ranges[ Index ];
+
+                Clusters[ BaseCluster + Index ] = FCluster(
+                    Verts,
+                    Indexes,
+                    MaterialIndexes,
+                    NumTexCoords, bHasColors, bPreserveArea,
+                    Range.Begin, Range.End, Partitioner, Adjacency );
+
+                // Negative notes it's a leaf
+                Clusters[ BaseCluster + Index ].EdgeLength *= -1.0f;
+            });
+    }
+
+// 构建 Cluster 有向非循环图
+// 同时也会生成多层次Cluster Lod 树结构
+TArray<FClusterGroup> Groups;
+{
+    TRACE_CPUPROFILER_EVENT_SCOPE(Nanite::Build::DAG.Reduce);
+    
+    uint32 ClusterStart = 0;
+    for (uint32 MeshIndex = 0; MeshIndex < Resources.NumInputMeshes; MeshIndex++)
+    {
+        uint32 NumClusters = ClusterCountPerMesh[MeshIndex];
+        BuildDAG( Groups, Clusters, ClusterStart, NumClusters, MeshIndex, MeshBounds );
+        ClusterStart += NumClusters;
+    }
+}
+    void BuildDAG( TArray< FClusterGroup >& Groups, TArray< FCluster >& Clusters, uint32 ClusterRangeStart, uint32 ClusterRangeNum, uint32 MeshIndex, FBounds3f& MeshBounds )
+    {
+        // ...
+        while( true ) 
+        {
+            // 当前级别的 Cluster 数量少于组最大数量 直接加入到 Groups 中
+            if( LevelClusters.Num() <= MaxGroupSize ) {
+                // 简化 Cluster 的顶点，面
+                // 并加入到 Groups 中
+                DAGReduce( Groups, Clusters, NumClusters, Children, Groups.Num() - 1, MeshIndex );
+
+			    // Correct num to atomic count
+			    Clusters.SetNum( NumClusters, false );
+
+                continue;
+            }
+            // 需要在当前级别创建多个 Group
+            
+            // 获取 Cluster 的边缘边，并加入到 Hash
+            ParallelFor( TEXT("Nanite.BuildDAG.PF"), LevelClusters.Num(), 32,
+			[&]( uint32 ClusterIndex ) {
+                ...
+            });
+
+            // 在其他 Cluster 中查找匹配的边缘边
+            ParallelFor( TEXT("Nanite.BuildDAG.PF"), LevelClusters.Num(), 32,
+			[&]( uint32 ClusterIndex ){
+                ...
+            });
+
+            // 不连续的Cluster的集合.
+            FDisjointSet DisjointSet( LevelClusters.Num() );
+
+            // 构建集合
+
+            // 划分器，构建位置连接
+            FGraphPartitioner Partitioner( LevelClusters.Num() );
+            Partitioner.BuildLocalityLinks( DisjointSet, MeshBounds, TArrayView< const int32 >(), GetCenter );
+
+            // 遍历层级所有Cluster, 构建他们的邻边位置关系
+
+            // 严格分区
+            Partitioner.PartitionStrict( Graph, MinGroupSize, MaxGroupSize, !bSingleThreaded );
+
+            // 计算最大父层级数量
+            // 并行构建Groups
+            ParallelFor( TEXT("Nanite.BuildDAG.PF"), Partitioner.Ranges.Num(), 1,
+			[&]( int32 PartitionIndex )
+			{
+				auto& Range = Partitioner.Ranges[ PartitionIndex ];
+
+				TArrayView< uint32 > Children( &Partitioner.Indexes[ Range.Begin ], Range.End - Range.Begin );
+
+				// Force a deterministic order
+				Children.Sort(
+					[&]( uint32 A, uint32 B )
+					{
+						return Clusters[A].GUID < Clusters[B].GUID;
+					} );
+
+				uint32 ClusterGroupIndex = PartitionIndex + Groups.Num() - Partitioner.Ranges.Num();
+
+				DAGReduce( Groups, Clusters, NumClusters, Children, ClusterGroupIndex, MeshIndex );
+			} );
+
+            // 一些优化...
+        }
+
+        // 构建出跟节点
+        // Max out root node
+        uint32 RootIndex = LevelOffset;
+        FClusterGroup RootClusterGroup;
+        RootClusterGroup.Children.Add( RootIndex );
+        RootClusterGroup.Bounds				= Clusters[ RootIndex ].SphereBounds;
+        RootClusterGroup.LODBounds			= FSphere3f( 0 );
+        RootClusterGroup.MaxParentLODError	= 1e10f;
+        RootClusterGroup.MinLODError		= -1.0f;
+        RootClusterGroup.MipLevel			= Clusters[ RootIndex ].MipLevel + 1;
+        RootClusterGroup.MeshIndex			= MeshIndex;
+        RootClusterGroup.bTrimmed			= false;
+        Clusters[ RootIndex ].GroupIndex = Groups.Num();
+        Groups.Add( RootClusterGroup );
+    }
+
+    static void DAGReduce( TArray< FClusterGroup >& Groups, TArray< FCluster >& Clusters, TAtomic< uint32 >& NumClusters, TArrayView< uint32 > Children, int32 GroupIndex, uint32 MeshIndex )
+    {
+        // 合并, 排序...
+
+        // 计算上一级需要的 Cluster 数量？
+        int32 NumParents = FMath::DivideAndRoundUp< int32 >( Merged.Indexes.Num(), FCluster::ClusterSize * 6 );
+
+        // 注意步进为 2
+        for( int32 TargetClusterSize = FCluster::ClusterSize - 2; TargetClusterSize > FCluster::ClusterSize / 2; TargetClusterSize -= 2 ) 
+        {
+            if( NumParents == 1 )
+            {
+                // parent cluster 数量为 1，计算Lod后退出
+                ParentEnd = ( NumClusters += NumParents );
+                ParentStart = ParentEnd - NumParents;
+
+                Clusters[ ParentStart ] = Merged;
+                Clusters[ ParentStart ].Bound();
+                break;
+            }else 
+            {
+                // 简化，并计算出最大Lod误差
+                ParentMaxLODError = Merged.Simplify( TargetNumTris );
+
+                // 拆分， 通过 metis 库
+                FAdjacency Adjacency = Merged.BuildAdjacency();
+
+                FGraphPartitioner Partitioner( Merged.Indexes.Num() / 3 );
+                Merged.Split( Partitioner, Adjacency );
+
+                if( Partitioner.Ranges.Num() <= NumParents )
+                {
+                    NumParents = Partitioner.Ranges.Num();
+                    ParentEnd = ( NumClusters += NumParents );
+                    ParentStart = ParentEnd - NumParents;
+
+                    int32 Parent = ParentStart;
+                    for( auto& Range : Partitioner.Ranges )
+                    {
+                        Clusters[ Parent ] = FCluster( Merged, Range.Begin, Range.End, Partitioner, Adjacency );
+                        Parent++;
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        // ...
+        // 计算 child cluster 的 Lod， Group Index
+        // 并加入到 Group 中
+        for( int32 Child : Children )
+        {
+            bool bLeaf = Clusters[ Child ].EdgeLength < 0.0f;
+            float LODError = Clusters[ Child ].LODError;
+
+            Children_LODBounds.Add( Clusters[ Child ].LODBounds );
+            Children_SphereBounds.Add( Clusters[ Child ].SphereBounds );
+            ChildMinLODError = FMath::Min( ChildMinLODError, bLeaf ? -1.0f : LODError );
+            ParentMaxLODError = FMath::Max( ParentMaxLODError, LODError );
+
+            Clusters[ Child ].GroupIndex = GroupIndex;
+            Groups[ GroupIndex ].Children.Add( Child );
+            check( Groups[ GroupIndex ].Children.Num() <= NANITE_MAX_CLUSTERS_PER_GROUP_TARGET );
+        }
+        
+        // Parent Cluster 持有相同的 Lod
+        for( int32 Parent = ParentStart; Parent < ParentEnd; Parent++ )
+        {
+            Clusters[ Parent ].LODBounds			= ParentLODBounds;
+            Clusters[ Parent ].LODError				= ParentMaxLODError;
+            Clusters[ Parent ].GeneratingGroupIndex = GroupIndex;
+        }
+
+        // 生成 Group 数据
+        Groups[ GroupIndex ].Bounds				= ParentBounds;
+        Groups[ GroupIndex ].LODBounds			= ParentLODBounds;
+        Groups[ GroupIndex ].MinLODError		= ChildMinLODError;
+        Groups[ GroupIndex ].MaxParentLODError	= ParentMaxLODError;
+        Groups[ GroupIndex ].MipLevel			= Merged.MipLevel - 1;
+        Groups[ GroupIndex ].MeshIndex			= MeshIndex;
+        Groups[ GroupIndex ].bTrimmed			= false;
+    }
+
+// 构建 Cluster 粗糙代表
+static float BuildCoarseRepresentation(
+	const TArray<FClusterGroup>& Groups,
+	const TArray<FCluster>& Clusters,
+	TArray<FStaticMeshBuildVertex>& Verts,
+	TArray<uint32>& Indexes,
+	TArray<FStaticMeshSection, TInlineAllocator<1>>& Sections,
+	uint32& NumTexCoords,
+	uint32 TargetNumTris,
+	float TargetError,
+	int32 FallbackLODIndex)
+{
+    // ...
+}
+
+// 编码 Cluster 资源
+void Encode(
+	FResources& Resources,
+	const FMeshNaniteSettings& Settings,
+	TArray< FCluster >& Clusters,
+	TArray< FClusterGroup >& Groups,
+	const FBounds3f& MeshBounds,
+	uint32 NumMeshes,
+	uint32 NumTexCoords,
+	bool bHasColors)
+{
+    // 删除退化三角形
+    RemoveDegenerateTriangles( Clusters );
+
+    // 构建材质范围
+    BuildMaterialRanges( Clusters );
+
+    //...
+
+    // 计算编码信息
+    CalculateEncodingInfos(EncodingInfos, Clusters, bHasColors, NumTexCoords);
+
+    // 分配 Cluster 到 Pages
+    AssignClustersToPages(Groups, Clusters, EncodingInfos, Pages, GroupParts, MaxRootPages);
+
+    // 构建层级结构
+    BuildHierarchies(Resources, Groups, GroupParts, NumMeshes);
+
+    // 写入Page
+    WritePages(Resources, Pages, Groups, GroupParts, Clusters, EncodingInfos, NumTexCoords);
+}
+
+Nanite Render:
+Nanite的主要渲染步骤在 void FDeferredShadingSceneRenderer::Render(FRDGBuilder& GraphBuilder) 中
+
+void FDeferredShadingSceneRenderer::Render(FRDGBuilder& GraphBuilder) 
+{
+    ...
+    // Nanite 光栅化
+    TArray<Nanite::FRasterResults, TInlineAllocator<2>> NaniteRasterResults;
+
+    // 遍历所有 View
+    for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++) 
+    {
+        // 初始化 Nanite 裁剪上下文
+        Nanite::FCullingContext CullingContext = Nanite::InitCullingContext(
+            GraphBuilder,
+            SharedContext,
+            *Scene,
+            !bIsEarlyDepthComplete ? View.PrevViewInfo.NaniteHZB : View.PrevViewInfo.HZB,
+            View.ViewRect,
+            CullingConfig);
+
+        ...
+        // 裁剪 + 光栅化
+        Nanite::CullRasterize(
+            GraphBuilder,
+            Scene->NaniteRasterPipelines[ENaniteMeshPass::BasePass],
+            RasterResults.VisibilityResults,
+            *Scene,
+            View,
+            { PackedView },
+            SharedContext,
+            CullingContext,
+            RasterContext,
+            RasterState,
+            /*OptionalInstanceDraws*/ nullptr,
+            bExtractStats
+        );
+
+        ...
+        // 构建层次深度 HZB
+        BuildHZBFurthest(
+            GraphBuilder,
+            SceneDepth,
+            RasterContext.VisBuffer64,
+            PrimaryViewRect,
+            FeatureLevel,
+            ShaderPlatform,
+            TEXT("Nanite.HZB"),
+            /* OutFurthestHZBTexture = */ &GraphHZB );
+
+        ...
+    }
+}
+    // Instance Cull 
+    static void AddPass_InstanceHierarchyAndClusterCull(
+        FRDGBuilder& GraphBuilder,
+        const FScene& Scene,
+        const FCullingParameters& CullingParameters,
+        const TArray<FPackedView, SceneRenderingAllocator>& Views,
+        const uint32 NumPrimaryViews,
+        const FSharedContext& SharedContext,
+        const FCullingContext& CullingContext,
+        const FRasterContext& RasterContext,
+        const FRasterState& RasterState,
+        const FGPUSceneParameters &GPUSceneParameters,
+        FRDGBufferRef MainAndPostNodesAndClusterBatchesBuffer,
+        FRDGBufferRef MainAndPostCandididateClustersBuffer,
+        uint32 CullingPass,
+        FVirtualShadowMapArray *VirtualShadowMapArray,
+        FVirtualTargetParameters &VirtualTargetParameters
+	)
+    {
+       // 入口
+    }
+
+    // NaniteInstanceCulling.usf
+    [numthreads(64, 1, 1)]
+    void InstanceCull(
+        uint3 GroupId : SV_GroupID,
+        uint GroupIndex : SV_GroupIndex)
+    {
+        // 进行对象级别的可见性判断
+
+        // 对于可见对象，写入 BVH 
+        FCandidateNode Node;
+		Node.Flags = Flags;
+		Node.ViewId = ViewId;
+		Node.InstanceId = InstanceId;
+		Node.NodeIndex = 0;
+		Node.EnabledBitmask = NANITE_BVH_NODE_ENABLE_MASK;
+		StoreCandidateNode( OutMainAndPostNodesAndClusterBatches, NodeOffset, Node, bIsPostPass );
+    }
+
+    // NaniteClusterCulling.usf
+    [numthreads(NANITE_PERSISTENT_CLUSTER_CULLING_GROUP_SIZE, 1, 1)]
+    void NodeAndClusterCull(uint GroupID : SV_GroupID, uint GroupIndex : SV_GroupIndex) 
+    {
+#if CULLING_TYPE == NANITE_CULLING_TYPE_NODES
+        NodeCull<FNaniteTraversalClusterCullCallback>(GroupID, GroupIndex, QueueStateIndex);
+#elif CULLING_TYPE == NANITE_CULLING_TYPE_CLUSTERS
+        ClusterCull<FNaniteTraversalClusterCullCallback>(GroupID, GroupIndex, QueueStateIndex);
+#elif CULLING_TYPE == NANITE_CULLING_TYPE_PERSISTENT_NODES_AND_CLUSTERS
+        PersistentNodeAndClusterCull<FNaniteTraversalClusterCullCallback>(GroupIndex, QueueStateIndex);
+#endif
+    }
+
+    template<typename FNaniteTraversalCallback>
+    void PersistentNodeAndClusterCull(uint GroupIndex, uint QueueStateIndex) 
+    {
+        
+    }
+
+	
