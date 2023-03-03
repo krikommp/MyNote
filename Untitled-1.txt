@@ -401,7 +401,197 @@ void FDeferredShadingSceneRenderer::Render(FRDGBuilder& GraphBuilder)
     template<typename FNaniteTraversalCallback>
     void PersistentNodeAndClusterCull(uint GroupIndex, uint QueueStateIndex) 
     {
-        
+        // 每组第一个线程用于计算开始节点位置
+        // 累积处理数量存储在 GroupNodeBatchStartIndex
+        if (GroupIndex == 0)
+        {
+            InterlockedAdd(QueueState[0].PassState[QueueStateIndex].NodeReadOffset, NANITE_MAX_BVH_NODES_PER_GROUP, GroupNodeBatchStartIndex);
+        }
+        GroupMemoryBarrierWithGroupSync();
+        // 之后的线程可以得到BVH节点起始位置
+
+        const uint NodeIndex = NodeBatchStartIndex + NodeBatchReadyOffset + GroupIndex;
+
+        // 读取 Node 数据，并写入到 GroupNodeData （首次循环读取到的是 InstanceCull 流程中生成的数据）
+        bNodeReady = TraversalCallback.LoadCandidateNodeDataToGroup(NodeIndex, GroupIndex);
+
+        ...
+
+        // NodeCull 
+        if (bProcessNodes) 
+        {
+            ...
+            ProcessNodeBatch<FNaniteTraversalCallback>(BatchSize, GroupIndex, QueueStateIndex);
+        }
+
+        // cluster cull
+        // 每组第一个线程用于计算开始位置以及待处理数量
+        // 判断是否可以开始处理
+        if ((bProcessNodes && ClusterBatchReadySize == NANITE_PERSISTENT_CLUSTER_CULLING_GROUP_SIZE) || (!bProcessNodes && ClusterBatchReadySize > 0))
+		{
+			ProcessClusterBatch<FNaniteTraversalCallback>(ClusterBatchStartIndex, ClusterBatchReadySize, GroupIndex);
+			ClusterBatchStartIndex = 0xFFFFFFFFu;
+		}
+
+        // 当前线程没有需要处理的 BVH 节点，则切换到 Cluster 模式
+        if (bProcessNodes && GroupNodeCount == 0)
+		{
+			bProcessNodes = false;
+		}
     }
 
-	
+    template<typename FNaniteTraversalCallback>
+    void ProcessNodeBatch(uint BatchSize, uint GroupIndex, uint QueueStateIndex) 
+    {
+        // 从 TGS GroupNodeData 中获取 Packed Node 数据
+        UnpackCandidateNode(NodeData, bIsPostPass);
+
+        // 获取 HierarchyNode
+        // 数据来自 CPU 端的 FPackedHierarchyNode 
+        // Unpack
+        const FHierarchyNodeSlice HierarchyNodeSlice = GetHierarchyNodeSlice(TraversalCallback.GetHierarchyNodeIndex(), ChildIndex);
+        
+        // 判断可见性
+        
+       
+        bVisible = TraversalCallback.ShouldVisitChild(HierarchyNodeSlice, bVisible);
+        {
+            ...
+            // 是否需要执行 CullFrustum
+            FFrustumCullData Cull = BoxCullFrustum(NodeBoxBoundsCenter, NodeBoxBoundsExtent, DynamicData.LocalToTranslatedWorld, NaniteView.TranslatedWorldToClip, bIsOrtho, bNearClip, bSkipBoxCullFrustum );
+            // 获取 Screen rect, 判断是否覆盖到
+            FScreenRect Rect = GetScreenRect( NaniteView.ViewRect, Cull, 4 );
+            // 是否覆盖到像素中点
+            bVisible = OverlapsAnyValidPage( NaniteView.TargetLayerIndex, NaniteView.TargetMipLevel, RectPages, PageFlagMask);
+        }
+
+        // 非叶子节点累积到 GroupNumCandidateNodes
+        BRANCH
+        if (bVisible && !HierarchyNodeSlice.bLeaf)
+        {
+            WaveInterlockedAddScalar_(GroupNumCandidateNodes, 1, CandidateNodesOffset);
+        }
+
+        // 可见并非叶子节点
+        if (bOutputChild && !HierarchyNodeSlice.bLeaf)
+        {
+            CandidateNodesOffset += GroupCandidateNodesOffset;
+
+            if (CandidateNodesOffset < MaxNodes)
+            {
+                // 加入到候选节点中
+                TraversalCallback.StoreChildNode(CandidateNodesOffset, HierarchyNodeSlice);
+            }
+        }
+
+        // 对于可见叶子节点
+        // 将叶子节点包含的所有 Cluster 加入到 MainAndPostCandididateClusters
+        // 处理Cluster
+
+        // 加载 Cluster 渲染数据
+        RequestPageRange(InstanceData.NaniteRuntimeResourceID, HierarchyNodeSlice.StartPageIndex, HierarchyNodeSlice.NumPages, NaniteView.StreamingPriorityCategory, StreamingPriority);
+
+        // 如果前一帧发生遮挡，则加入到 MainAndPostNodesAndClusterBatches
+        // 由post pass再次执行一遍cull流程
+    }
+
+    // cluster culling
+    template<typename FNaniteTraversalCallback>
+    void ProcessClusterBatch(uint BatchStartIndex, uint BatchSize, uint GroupIndex) 
+    {
+        FNaniteTraversalCallback TraversalCallback;
+
+        if (GroupIndex < BatchSize)
+        {
+            const uint CandidateIndex = BatchStartIndex * NANITE_PERSISTENT_CLUSTER_CULLING_GROUP_SIZE + GroupIndex;
+            // 获取cluster索引
+            const uint4 PackedCluster = TraversalCallback.LoadPackedCluster(CandidateIndex);
+
+            // cluster cull 流程
+            TraversalCallback.ProcessCluster(PackedCluster);
+        }
+
+        // 清理候选的cluster
+        TraversalCallback.ClearClusterBatch(BatchStartIndex);
+    }
+
+    void ProcessCluster(uint4 PackedCluster) 
+    {
+        ...
+
+        // 以SOA方式读取Cluster数据
+        FCluster Cluster = GetCluster(VisibleCluster.PageIndex, VisibleCluster.ClusterIndex);
+
+        ...
+        // 首先判断 Cluster 是否足够小
+        // 并决定是否启用硬件光栅
+        bVisible = SmallEnoughToDraw(NaniteView, InstanceData, DynamicData, Cluster.LODBounds, Cluster.LODError, Cluster.EdgeLength, bUseHWRaster) || (Cluster.Flags & NANITE_CLUSTER_FLAG_LEAF);
+    
+        // 可见的话，执行 Frustum Cull
+        Cull = BoxCullFrustum(ClusterBoxBoundsCenter, ClusterBoxBoundsExtent, DynamicData.LocalToTranslatedWorld, NaniteView.TranslatedWorldToClip, bIsOrtho, bNearClip, bSkipBoxCullFrustum);
+
+        // 在启用了 HZB 的情况下
+        // 使用上一帧的 LocalToClip 进行剔除
+#if (CULLING_PASS == CULLING_PASS_NO_OCCLUSION && VIRTUAL_TEXTURE_TARGET) || CULLING_PASS == CULLING_PASS_OCCLUSION_MAIN
+		TestPrevHZB(NaniteView, ClusterBoxBoundsCenter, ClusterBoxBoundsExtent, InstanceData, DynamicData, bNearClip, bViewHZB, bSkipBoxCullFrustum, bSkipBoxCullHZB, CULLING_PASS == CULLING_PASS_OCCLUSION_MAIN, bVisible, bWasOccluded);
+#if CULLING_PASS == CULLING_PASS_NO_OCCLUSION
+		bVisible = bVisible && !bWasOccluded;
+#endif // CULLING_PASS == CULLING_PASS_NO_OCCLUSION
+#elif CULLING_PASS == CULLING_PASS_OCCLUSION_POST
+		TestCurrentHZB(Cull, Rect, NaniteView, InstanceData, DynamicData, bSkipBoxCullHZB, bVisible, bWasOccluded);
+		bVisible = bVisible && !bWasOccluded;
+#endif
+
+        // VTT...
+
+        // 准备 HW, SW 数据
+
+        ...
+
+        // 写入可见的 Cluster 数据
+
+        // 如果该Cluster在上一帧被遮挡，则加入到 MainAndPostCandididateClusters
+        // 在 Post Pass 中再次进行 cull
+    }
+
+    bool SmallEnoughToDraw( FNaniteView NaniteView, FInstanceSceneData InstanceData, FInstanceDynamicData DynamicData, float4 LODBounds, float LODError, float EdgeLength, inout bool bUseHWRaster ) 
+    {
+        // 根据 Lod 计算 bound 的投影缩放比例
+        float ProjectedEdgeScale = GetProjectedEdgeScales( NaniteView, InstanceData, DynamicData, LODBounds ).x;
+        // 与当前 View 的 LoadScale 比较可见性
+        bool bVisible = ProjectedEdgeScale > UniformScale * LODError * NaniteView.LODScale;
+
+        // NaniteView.LODScale， NaniteView.LODScaleHW 在 cpu 端计算
+
+        // 将Cluster中最大的三角形边进行投影缩放，如果大于指定的像素，则执行硬件光栅化
+    }
+
+    bool ShouldVisitChildInternal( FNaniteView NaniteView, FInstanceSceneData InstanceData, FInstanceDynamicData DynamicData, float4 LODBounds, float MinLODError, float MaxParentLODError, inout float Priority )
+    {
+        // 与 SmallEnoughToDraw 相似
+        // 计算 Node 的 Bounds 缩放比例
+        float2 ProjectedEdgeScales = GetProjectedEdgeScales(NaniteView, InstanceData, DynamicData, LODBounds);
+        float UniformScale = min3( InstanceData.NonUniformScale.x, InstanceData.NonUniformScale.y, InstanceData.NonUniformScale.z );
+        float Threshold = NaniteView.LODScale * UniformScale * MaxParentLODError;
+
+        // 大于一个指定像素值
+        if( ProjectedEdgeScales.x <= Threshold )
+        {
+            Priority = Threshold / ProjectedEdgeScales.x;	// TODO: Experiment with better priority
+            // return (ProjectedEdgeScales.y >= NaniteView.LODScale * UniformScale * MinLODError); //TODO: Doesn't currently work with streaming. MinLODError needs to also reflect leafness caused by streaming cut.
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    // 光栅化流程
+    // 输出 Visibility Buffer
+
+    // HW Rasterize
+    NaniteRasterizer.usf -> HWRasterizeVS HWRasterizeMS HWRasterizePS
+
+    ...
+
