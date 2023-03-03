@@ -550,6 +550,10 @@ void FDeferredShadingSceneRenderer::Render(FRDGBuilder& GraphBuilder)
 
         // 写入可见的 Cluster 数据
 
+        // 方向
+        StoreVisibleCluster(OutVisibleClustersSWHW, (MaxVisibleClusters - 1) - VisibleClusterOffsetHW, VisibleCluster, VIRTUAL_TEXTURE_TARGET);
+        StoreVisibleCluster(OutVisibleClustersSWHW, VisibleClusterOffsetSW, VisibleCluster, VIRTUAL_TEXTURE_TARGET);
+
         // 如果该Cluster在上一帧被遮挡，则加入到 MainAndPostCandididateClusters
         // 在 Post Pass 中再次进行 cull
     }
@@ -593,5 +597,47 @@ void FDeferredShadingSceneRenderer::Render(FRDGBuilder& GraphBuilder)
     // HW Rasterize
     NaniteRasterizer.usf -> HWRasterizeVS HWRasterizeMS HWRasterizePS
 
+    PrimitiveOutput HWRasterizeVS(PrimitiveInput Input) {
+        FVisibleCluster VisibleCluster = GetVisibleCluster( VisibleIndex, VIRTUAL_TEXTURE_TARGET );
+        FTriRange TriRange = GetTriangleRange(Cluster, bHasRasterBin, RasterBin);
+
+        // 硬件光栅化
+        PrimOutput.Out = CommonRasterizerVS(NaniteView, InstanceData, VisibleCluster, Cluster, MyVertIndex, PixelValue);
+
+        // Pack Visible Index 和 Tri Index => 32 位
+        // 7位 Tri Index => Cluster 数量
+        // Visible Index => Cluster 索引
+        const uint PixelValue = ((VisibleIndex + 1) << 7) | TriIndex;
+    }
+
+    #if PIXELSHADER
+    void HWRasterizePS(VSOut In
+#if NANITE_MESH_SHADER	
+	    , PrimitiveAttributes Primitive
+#endif
+    )
+    {
+        // 写入到 VisBuffer
+        // 7 + 25 + 32
+        // Tri + Vis + Depth
+    }
+
     ...
 
+    Deferred Material
+    将材质分类，每个材质绘制一个全屏quad, N * M
+
+    Material Slot 最大 16 K
+
+    对材质进行Culling,分Tile 
+    每组线程 16 * 16，每个线程处理 4 * 4 像素 => 每个 Tile 有 64 * 64 像素大小
+
+    Material Depth Pass
+    Classift Materials
+
+    根据 InstanceId 查找 Tile Index
+    遍历 Tile Binning
+        判断有效的 Tile 
+    
+
+    Material Rendering Pass
