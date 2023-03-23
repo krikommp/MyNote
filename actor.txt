@@ -1,0 +1,129 @@
+q1. enemy how to use skill
+a1: every enemy has his owner skill list
+    from datatable
+    has ai state machine component
+    when turn start
+    activate ai state machine
+    awit state machine ended
+    
+    in state machine: (different enemy has different ai state machine,  we use a simple actor as example)
+    // in this actor we have some behaviour
+    // 1. if (some opposed actors in attack range) and (attack action can use), select target and do attack skill -> change state to idle
+    // 2. if (some opposed actors in can move to array) and (move action can use), try to do run action -> change state to idle
+    // 3. if (hp is under 30%) and (defense skill can be use), try use defense action -> change state to idle state
+    // 4. default: stop ai state machine
+    
+    check skill can use: cost and cool down and tag block
+    find opposed action function: custom function
+
+    BAT_CheckSkillAndRange(percent: float[0, 100]):
+	Check Skill Can Activate
+	Check Any ChessPiece in Skill Range
+
+    BAS_TryUseSkill():
+	if skill neet target:
+		do custom target find logic:
+		if has target:
+			use skill
+			send input event
+	else:
+		use skill
+
+    BAT_CheckCanMoveTo():
+	Check Walk Skill Can Activate
+	Check Any ChessPiece in can move to arrary
+
+    BAS_MoveTo():
+	do custom target find logic:
+		do walk skill
+
+    Skills:
+	Melee: 6 point hit 1 point action
+	Defense: 5 point defense, 1 point action 
+	Bash: break all defense, 8 point hit, 3 point action
+	Strike Back: add "strike back" state with 1 turns witch will back hit skill once, 2 point action
+	Windmill: Hit all chess piece in skill range, 5 point hit, 3 point action
+	Leap Attack: Jump to a chess piece forward, 6 point hit, 2 point action
+
+	(maybe) for ai:
+	Strength: up 3 point strength, skip current turn and next turn will use bash skill
+
+	attack += strength
+	magic += li 
+
+    Melee
+    if (melee can use && any body in attack range):
+        do attack
+    else if (move can use && any body in can move to range):
+        search all can move to array
+        select suitable unit (the health point is lowest)
+        move to unit unit in melee skill attack range
+        do attack
+    else if (move can use && any body in visiable range):
+        search all visiable unit
+        select suitable unit (the health point is lowest)
+        move to
+        
+    AddBuffUI:
+        FOnGivenActiveGameplayEffectRemoved& OnAnyGameplayEffectRemovedDelegate();
+        check has UIData in GameplayEffect
+        OnGridUIBuffAdded.Broadcast(UIData, time)
+        FOnActiveGameplayEffectTimeChange.AddRefreshEvent
+
+    RemoveBuffUI:
+        FOnGameplayEffectAppliedDelegate OnGameplayEffectAppliedDelegateToSelf;
+        check has UIData om GameplayEffect
+        OnGridUIBuffRemoved.Broadcast(UIData)
+
+    RefreshBuffUI:
+        OnGridUIBuffRefresh.Broadcast(UIData, time)
+
+
+summary:
+    GridAISkillComponent:
+    [
+        abilitySystemComponent : GridAbilitySystemComponent
+
+        skillMap: TMap<string, FGridSkillData>
+
+        ReadAbilities() : void
+
+        FindAbility(name: string) : FGridAbility
+
+        InitializeSkill(): void
+
+        SkillList: TArray<FGridSkillInfo>
+    ]
+
+    FGridSkillData:
+    [
+        icon: UImage
+
+        skill: FGridAbility
+
+        level: int32
+
+        id: string
+
+        handle: FGridAbilityHandle
+    ]
+
+    TMap<string, FGridSkillData> skillMap
+
+    FGridAIActionUnit:
+    {
+        SkillIDs: TArray<TSubClassOf<UGameplayAbility>>,
+        Percentage: float[0.0, 1.0],
+    }
+
+    FGridAIActionList:
+    {
+        ActionUnits: TArray<FGridAIActionUnit>
+    }
+
+    FGridAIActionConfig:
+    {
+        Actions: TArray<FGridAIActionList>
+    }
+
+    
