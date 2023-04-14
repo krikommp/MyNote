@@ -650,3 +650,4 @@ rm /etc/kubernetes/ -rf
 rm /var/lib/kubelet/ -rf 
 ```
 
+kubectl taint nodes --all node-role.kubernetes.io/control-plane-

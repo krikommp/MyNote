@@ -90,7 +90,7 @@
 -S, --sparse          #对稀疏文件进行特殊处理以节省DST的空间
 -n, --dry-run         #显示哪些文件将被传输
 -W, --whole-file      #拷贝文件，不进行增量检测
--x, --one-file-system #不要跨越文件系统边界
+-x, --one-file-system #不要跨越
 -B, --block-size=SIZE #检验算法使用的块尺寸，默认是700字节
 -e, --rsh=COMMAND     #指定使用rsh、ssh方式进行数据同步
 --rsync-path=PATH     #指定远程服务器上的rsync命令所在路径信息

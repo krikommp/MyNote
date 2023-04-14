@@ -440,12 +440,7 @@ done
 
 ```powershell
 # 创建集群
-[root@master ~]# kubeadm init \
-	--apiserver-advertise-address=192.168.145.100 \
-	--image-repository registry.aliyuncs.com/google_containers \
-	--kubernetes-version=v1.25.3 \
-	--service-cidr=10.96.0.0/12 \
-	--pod-network-cidr=10.244.0.0/16
+[root@master ~]# kubeadm init --image-repository=registry.aliyuncs.com/google_containers
 # 创建必要文件
 [root@master ~]# mkdir -p $HOME/.kube
 [root@master ~]# sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
@@ -3247,6 +3242,7 @@ pc-replicaset-snrk2   1/1     Running   0          114m
 
 # 当然也可以直接使用命令实现
 # 使用scale命令实现扩缩容， 后面--replicas=n直接指定目标数量即可
+
 [root@k8s-master01 ~]# kubectl scale rs pc-replicaset --replicas=2 -n dev
 replicaset.apps/pc-replicaset scaled
 
@@ -3345,7 +3341,7 @@ spec: # 详情描述
   strategy: # 策略
     type: RollingUpdate # 滚动更新策略
     rollingUpdate: # 滚动更新
-      违规词汇: 30% # 最大额外可以存在的副本数，可以为百分比，也可以为整数
+      maxSurge: 30% # 最大额外可以存在的副本数，可以为百分比，也可以为整数
       maxUnavailable: 30% # 最大不可用状态的 Pod 的最大值，可以为百分比，也可以为整数
   selector: # 选择器，通过它指定该控制器管理哪些pod
     matchLabels:      # Labels匹配规则
@@ -3487,7 +3483,7 @@ spec:
   strategy: # 策略
     type: RollingUpdate # 滚动更新策略
     rollingUpdate:
-      违规词汇: 25% 
+      maxSurge: 25% 
       maxUnavailable: 25%
 ```
 
@@ -6022,7 +6018,7 @@ spec:
 # 部署
 [root@k8s-master01 ~]# kubectl create -f recommended.yaml
 
-# 查看namespace下的kubernetes-dashboard下的资源
+# 查看namespace下的kubernetes-dashboard下的资源 
 [root@k8s-master01 ~]# kubectl get pod,svc -n kubernetes-dashboard
 NAME                                            READY   STATUS    RESTARTS   AGE
 pod/dashboard-metrics-scraper-c79c65bb7-zwfvw   1/1     Running   0          111s
@@ -6043,8 +6039,7 @@ service/kubernetes-dashboard       NodePort   10.104.178.171  <none>       443:3
 [root@k8s-master01-1 ~]# kubectl create clusterrolebinding dashboard-admin-rb --clusterrole=cluster-admin --serviceaccount=kubernetes-dashboard:dashboard-admin
 
 # 获取账号token
-[root@k8s-master01 ~]#  kubectl get secrets -n kubernetes-dashboard | grep dashboard-admin
-dashboard-admin-token-xbqhh        kubernetes.io/service-account-token   3      2m35s
+[root@k8s-master01-1 ~]# kubectl -n kubernetes-dashboard create token admin-user
 
 [root@k8s-master01 ~]# kubectl describe secrets dashboard-admin-token-xbqhh -n kubernetes-dashboard
 Name:         dashboard-admin-token-xbqhh
