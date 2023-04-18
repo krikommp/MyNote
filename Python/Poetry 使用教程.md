@@ -91,3 +91,49 @@ demo = {version = "^0.0.6", source = "win172"}
 
 现在可以进行上传操作  
 `poetry publish --build --repository win172`
+
+
+### 4. 安装虚拟环境
+#### 4.1 virtualenvwrapper
+##### 4.1.1 安装
+```powershell
+# 安装 virtualenvwrapper
+[root@master ~]# pip3 install virtualenvwrapper
+
+# 定位 virtualenvwrapper 位置
+# 一般都会在 $HOME/.local/bin/virtualenvwrapper.sh
+[root@master ~]# sudo find / -name virtualenvwrapper.sh
+
+# 修改 .bashrc 文件，加入下面几行
+[root@master ~]# sudo vim ~/.bashrc
+# 设置虚拟环境存放目录
+export WORKON_HOME=$HOME/.virtualenvs
+# 设置虚拟环境执行脚本位置
+source $HOME/.local/bin/virtualenvwrapper.sh
+# 设置 virtualenv 的路径，一般在创建环境时报无法找到 virtualenv 时需要指定
+export VIRTUALENVWRAPPER_VIRTUALENV=$HOME/.local/bin/virtualenv
+# 设定执行的python路径
+export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3
+source $HOME/.local/bin/virtualenvwrapper.sh
+
+# 执行被修改的初始化文件
+[root@master ~]# source ~/.bashrc
+```
+
+##### 4.1.2 使用
+```powershell
+# 创建新虚拟环境
+[root@master ~]# mkvirtualenv test
+
+# 进入或切换虚拟环境
+[root@master ~]#  workon <虚拟环境名称>
+# 退出虚拟环境
+[root@master ~]# deactivate
+# 删除虚拟环境
+[root@master ~]# rmvirtualenv <虚拟环境名称>
+# 列出所有虚拟环境
+[root@master ~]# lsvirtualenv 
+
+# 创建名为 python-core-tech-2.7 的虚拟环境,指定python版本
+[root@master ~]# mkvirtualenv -p python2.7 python-core-tech-2.7
+```
