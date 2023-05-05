@@ -11,3 +11,9 @@ git checkout -- filename
 
 // 丢弃本地所有修改
 git checkout .
+
+// 查看文件权限
+git ls-files --stage
+
+// 修改文件权限
+git update-index --chmod=+x filename

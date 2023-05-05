@@ -1,0 +1,11 @@
+@startuml GridWarFogComponent
+
+class GridMapWarFogComponent{
+    +GridMapWarFogComponent(const FObjectInitializer& ObjectInitializer): void
+    +OnRegister() : void
+    +OnUnregister() : void
+
+    -
+}
+
+@enduml
