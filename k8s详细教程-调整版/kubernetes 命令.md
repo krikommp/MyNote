@@ -651,3 +651,11 @@ rm /var/lib/kubelet/ -rf
 ```
 
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+
+
+如何发现 connection refuse 问题
+运行如下命令
+```
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```

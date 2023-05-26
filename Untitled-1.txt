@@ -452,7 +452,6 @@ void FDeferredShadingSceneRenderer::Render(FRDGBuilder& GraphBuilder)
         const FHierarchyNodeSlice HierarchyNodeSlice = GetHierarchyNodeSlice(TraversalCallback.GetHierarchyNodeIndex(), ChildIndex);
         
         // 判断可见性
-        
        
         bVisible = TraversalCallback.ShouldVisitChild(HierarchyNodeSlice, bVisible);
         {
