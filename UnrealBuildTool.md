@@ -300,3 +300,6 @@ UnrealBuildTool
 		-Target="UnrealEditor Win64 Development" -Target="ShaderCompileWorker Win64 Development -Quiet" -WaitMutex -FromMsBuild
 		
 -Target="UnrealEditor Win64 Development" -Target="ShaderCompileWorker Win64 Development -Quiet" -WaitMutex -FromMsBuild -NoUBTMakefiles
+
+命令行启动
+UE4Editor-Cmd.exe "%CurrentPath%\xx.uproject" -UTF8Output -nullrhi -nopause -nosplash -unattended -stdout -ExecCmds="Puerts.Gen"

@@ -1,0 +1,2 @@
+*.pdf filter=lfs diff=lfs merge=lfs -text
+Books/RTR4-CN.pdf filter=lfs diff=lfs merge=lfs -text
