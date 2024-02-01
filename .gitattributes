@@ -1,2 +1,3 @@
 *.pdf filter=lfs diff=lfs merge=lfs -text
 Books/RTR4-CN.pdf filter=lfs diff=lfs merge=lfs -text
+Books/Calculus[[:space:]]for[[:space:]]Computer[[:space:]]Graphics[[:space:]]by[[:space:]]John[[:space:]]Vince[[:space:]](z-lib.org).pdf filter=lfs diff=lfs merge=lfs -text
