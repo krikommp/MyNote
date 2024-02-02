@@ -1,0 +1,21 @@
+CreateTargetAssemblies -- line 77 -- EditorBuildRules.cs
+ |
+\ /
+ v
+
+UpdateCustomTargetAssemblies -- line 499 -- EditorCompilation.cs
+ |
+\ /
+ v
+
+SetAllCustomScriptAssemblyReferenceJsons -- line 525 -- EditorCompilation.cs
+ |
+\ /
+ v
+
+SetAllCustomScriptAssemblyReferenceJsons -- line 132 -- EditorCompilationInterface 
+ |
+\ /
+ v
+
+EditorCompilationInterfaceProxy::SetAllCustomScriptAssemblyReferenceJsons -- line 1518 -- ScriptCompilationPipeline.cpp
