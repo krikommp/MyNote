@@ -1,0 +1,39 @@
+基本数据结构：
+# 编辑器侧的节点数据结构，主要是用于表示图的连接数据，并不直接包含每个节点或插槽的资源属性
+RenderGraphEditorData : 
+{
+    # 节点对象
+    NodeData 
+    {
+        id,
+        position,
+        input_slots : SlotData[],
+        output_slots : SlotData[]
+    }
+
+    # 插槽，标记节点上可被连接的点
+    SlotData
+    {
+        id,
+        fieldname,
+        enabled,
+    }
+
+    # 边，标记节点插槽之间是否有相连关系
+    EdgeData
+    {
+        from : SlotData,
+        to : SlotData,
+    }
+
+    nodes : NodeData[]
+    slots : SlotData[]
+    edges : EdgeData[]
+}
+# 图运行时需要的节点或插槽信息。对于节点来说，指向具体的节点资源，运行逻辑；对于插槽来说，代表插槽输入或输出的类型
+RenderGraphRuntimeData
+{
+}
+
+Entry:
+RenderGraphDataAssetInspector // 点击资源时打开编辑器窗口
